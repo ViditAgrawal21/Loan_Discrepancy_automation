@@ -90,8 +90,8 @@ def force_kill_browser(browser_ref: dict):
 
 from automation.login import perform_login
 from automation.navigation import setup_reconciliation_page
-from automation.search import search_and_manage
-from automation.update_form import update_discrepancy
+from automation.search import search_and_manage, AccountNotFoundError
+from automation.update_form import update_discrepancy, AadhaarVerifyError
 from automation.submit import submit_and_extract
 
 from excel_engine.reader import load_workbook, read_row, get_total_rows, has_application_id
@@ -118,9 +118,9 @@ def _reset_page_for_next_row(page, log):
     for txt in ["OK", "Close", "×"]:
         try:
             btn = page.locator(f"button:has-text('{txt}')").first
-            if btn.is_visible(timeout=1000):
+            if btn.is_visible(timeout=500):
                 btn.click()
-                page.wait_for_timeout(200)
+                page.wait_for_timeout(100)
         except Exception:
             pass
 
@@ -128,7 +128,7 @@ def _reset_page_for_next_row(page, log):
     try:
         page.goto("https://fasalrin.gov.in/welcome",
                   wait_until="domcontentloaded")
-        page.wait_for_timeout(200)
+        page.wait_for_timeout(100)
         log("Page reset for next row")
     except Exception as e:
         log(f"Warning — page reset: {e}")
@@ -277,6 +277,40 @@ def run(profile: dict, profile_name: str, excel_path: str, mode: str,
             except AutomationStoppedError:
                 log(f"Row {row_num} interrupted by STOP.")
                 raise  # Propagate to outer handler
+
+            except AccountNotFoundError as e:
+                error_msg = str(e)
+                log(f"ACCOUNT NOT FOUND — Row {row_num}: {error_msg}")
+                log_error(f"Row {row_num}: {error_msg}")
+                try:
+                    writer.write_status(row_num, "ACCOUNT NOT FOUND")
+                except Exception:
+                    pass
+                fail_count += 1
+                if mode == "single":
+                    break
+                _reset_page_for_next_row(page, log)
+                continue
+
+            except AadhaarVerifyError as e:
+                error_msg = str(e)
+                log(f"AADHAAR VERIFY ERROR — Row {row_num}: {error_msg}")
+                log_error(f"Row {row_num}: {error_msg}")
+                try:
+                    screenshot_name = f"aadhaar_err_row{row_num}_{datetime.now().strftime('%H%M%S')}.png"
+                    take_screenshot(page, screenshot_name)
+                    log(f"Screenshot saved: {screenshot_name}")
+                except Exception:
+                    pass
+                try:
+                    writer.write_status(row_num, f"AADHAAR VERIFY ERROR: {error_msg[:80]}")
+                except Exception:
+                    pass
+                fail_count += 1
+                if mode == "single":
+                    break
+                _reset_page_for_next_row(page, log)
+                continue
 
             except Exception as e:
                 error_msg = str(e)

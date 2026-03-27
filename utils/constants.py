@@ -66,10 +66,12 @@ class Sheet1Col:
 # Only fields with non-empty Excel values will be updated.
 # ═══════════════════════════════════════════════════════════════
 
-FORM_FIELD_MAP = {
-    "name": "beneficiaryName",
-    "name_as_per_passbook": "beneficiaryPassbookName",
-}
+# List of (excel_key, html_input_name) tuples.
+# The same Excel "name" column (E) fills BOTH name fields on the form.
+FORM_FIELD_MAP = [
+    ("name", "beneficiaryName"),          # Name (As per Aadhaar)
+    ("name", "beneficiaryPassbookName"),   # Name (As per passbook)
+]
 
 # ═══════════════════════════════════════════════════════════════
 # Profile Configuration Dropdowns
