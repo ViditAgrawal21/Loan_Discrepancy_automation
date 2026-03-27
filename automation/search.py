@@ -81,7 +81,7 @@ def search_account(page, account_number: str, log_callback=None):
         # Click the search icon button to trigger the search
         search_btn = page.locator(".searchBar button.btn-secondary").first
         search_btn.click()
-        page.wait_for_timeout(600)  # Wait for table results to load
+        page.wait_for_timeout(300)  # Wait for table results to load
 
         log(f"Search entered & clicked: {account_number}")
     except Exception as e:
@@ -118,7 +118,6 @@ def click_manage_discrepancies(page, account_number: str, log_callback=None):
                     ).first
                     if manage_btn.is_visible(timeout=2000):
                         manage_btn.click()
-                        page.wait_for_timeout(300)
                         log(f"MANAGE DISCREPANCIES clicked for account {account_number}")
                         return
             except Exception:

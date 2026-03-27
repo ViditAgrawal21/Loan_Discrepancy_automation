@@ -30,19 +30,16 @@ def perform_login(page, context, profile: dict, profile_name: str,
     if "/welcome" in current_url or "/dashboard" in current_url or "/reconciliation" in current_url:
         log("Already logged in — skipping login")
         page.goto(RECONCILIATION_URL, wait_until="domcontentloaded")
-        page.wait_for_timeout(300)
         return True
 
     # ── Navigate to login page ──
     log("Opening login page...")
-    page.goto(LOGIN_URL, wait_until="networkidle")
-    page.wait_for_timeout(500)
+    page.goto(LOGIN_URL, wait_until="domcontentloaded")
 
     # Check if session cookies made us already logged in
     if "/welcome" in page.url or "/dashboard" in page.url:
         log("Session active — already logged in")
         page.goto(RECONCILIATION_URL, wait_until="domcontentloaded")
-        page.wait_for_timeout(300)
         return True
 
     # Server may redirect /login → /  (SPA routing issue).
@@ -54,12 +51,12 @@ def perform_login(page, context, profile: dict, profile_name: str,
             window.history.pushState({}, '', '/login');
             window.dispatchEvent(new PopStateEvent('popstate'));
         }""")
-        page.wait_for_timeout(1000)
+        page.wait_for_timeout(500)
 
         # If SPA routing didn't work, try a direct location change
         if "/login" not in page.url:
             page.evaluate("window.location.hash = '#/login'")
-            page.wait_for_timeout(800)
+            page.wait_for_timeout(300)
 
     log("On login page")
 
@@ -117,6 +114,5 @@ def perform_login(page, context, profile: dict, profile_name: str,
     save_session(context, profile_name)
     log("Navigating to Reconciliation page...")
     page.goto(RECONCILIATION_URL, wait_until="domcontentloaded")
-    page.wait_for_timeout(300)
     log("Ready — starting discrepancy automation")
     return True

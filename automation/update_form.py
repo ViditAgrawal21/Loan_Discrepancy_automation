@@ -56,7 +56,6 @@ def click_update(page, log_callback=None):
                 if btn_text == "UPDATE":
                     btn.wait_for(state="visible", timeout=8000)
                     btn.click()
-                    page.wait_for_timeout(300)
                     log("UPDATE clicked — form is now editable")
                     return
             except Exception:
@@ -68,7 +67,6 @@ def click_update(page, log_callback=None):
         ).filter(has_text="UPDATE").first
         update_btn.wait_for(state="visible", timeout=8000)
         update_btn.click()
-        page.wait_for_timeout(300)
         log("UPDATE clicked (fallback)")
 
     except Exception as e:
@@ -101,7 +99,6 @@ def fill_discrepancy_fields(page, row_data: dict, log_callback=None):
                 input_el = page.locator(f"input[name='{input_name}']").first
                 if input_el.is_visible(timeout=1500):
                     _fill_react_input(page, input_name, value)
-                    page.wait_for_timeout(50)
                     log(f"  Updated {input_name}: {value}")
                     fields_updated += 1
                 else:
@@ -132,13 +129,13 @@ def click_update_and_continue(page, log_callback=None):
         btn.wait_for(state="visible", timeout=8000)
         btn.scroll_into_view_if_needed()
         btn.click()
-        page.wait_for_timeout(400)
+        page.wait_for_timeout(200)
         log("UPDATE & CONTINUE clicked")
     except Exception as e:
         # Fallback: broader selector
         try:
             page.locator("button:has-text('UPDATE & CONTINUE')").first.click()
-            page.wait_for_timeout(400)
+            page.wait_for_timeout(200)
             log("UPDATE & CONTINUE clicked (fallback)")
         except Exception:
             raise RuntimeError(f"Could not click UPDATE & CONTINUE: {e}")
@@ -162,7 +159,6 @@ def click_ok_modal(page, log_callback=None):
         ok_btn = page.locator("button.existAccountBtn.outline-btn:has-text('OK')").first
         ok_btn.wait_for(state="visible", timeout=8000)
         ok_btn.click()
-        page.wait_for_timeout(300)
         log("OK clicked on confirmation modal")
     except Exception:
         # Fallback: try any OK button in a visible modal
@@ -171,12 +167,10 @@ def click_ok_modal(page, log_callback=None):
             ok_btn = modal.locator("button:has-text('OK')").first
             if ok_btn.is_visible(timeout=2000):
                 ok_btn.click()
-                page.wait_for_timeout(300)
                 log("OK clicked (modal fallback)")
         except Exception:
             try:
                 page.locator("button:has-text('OK')").first.click()
-                page.wait_for_timeout(300)
                 log("OK clicked (broadest fallback)")
             except Exception as e:
                 log(f"Warning: No OK modal found — may not be required: {e}")

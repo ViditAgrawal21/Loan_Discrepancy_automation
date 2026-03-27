@@ -110,7 +110,6 @@ def _reset_page_for_next_row(page, log):
     try:
         # Dismiss any confirmation / success modal
         page.keyboard.press("Escape")
-        page.wait_for_timeout(100)
     except Exception:
         pass
 
@@ -120,7 +119,6 @@ def _reset_page_for_next_row(page, log):
             btn = page.locator(f"button:has-text('{txt}')").first
             if btn.is_visible(timeout=500):
                 btn.click()
-                page.wait_for_timeout(100)
         except Exception:
             pass
 
@@ -128,7 +126,6 @@ def _reset_page_for_next_row(page, log):
     try:
         page.goto("https://fasalrin.gov.in/welcome",
                   wait_until="domcontentloaded")
-        page.wait_for_timeout(100)
         log("Page reset for next row")
     except Exception as e:
         log(f"Warning — page reset: {e}")

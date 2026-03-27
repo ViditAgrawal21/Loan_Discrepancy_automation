@@ -30,15 +30,14 @@ def click_preview(page, log_callback=None):
         ).first
         preview_btn.wait_for(state="visible", timeout=10000)
         preview_btn.scroll_into_view_if_needed()
-        page.wait_for_timeout(200)
         preview_btn.click()
-        page.wait_for_timeout(800)
+        page.wait_for_timeout(300)
         log("Preview opened")
     except Exception as e:
         # Fallback: broader selector
         try:
             page.locator("button:has-text('Preview')").first.click()
-            page.wait_for_timeout(800)
+            page.wait_for_timeout(300)
             log("Preview opened (fallback)")
         except Exception:
             raise RuntimeError(f"Could not click Preview button: {e}")
@@ -61,7 +60,6 @@ def check_declaration(page, log_callback=None):
         if not checkbox.is_checked():
             checkbox.scroll_into_view_if_needed()
             checkbox.check()
-            page.wait_for_timeout(100)
             log("Declaration checkbox checked")
         else:
             log("Declaration checkbox already checked")
@@ -74,7 +72,6 @@ def check_declaration(page, log_callback=None):
                     cb.click();
                 }
             }""")
-            page.wait_for_timeout(100)
             log("Declaration checkbox checked (JS fallback)")
         except Exception:
             raise RuntimeError(f"Could not check declaration: {e}")
@@ -97,12 +94,12 @@ def click_submit(page, log_callback=None):
         submit_btn.wait_for(state="visible", timeout=8000)
         submit_btn.scroll_into_view_if_needed()
         submit_btn.click()
-        page.wait_for_timeout(400)
+        page.wait_for_timeout(200)
         log("SUBMIT clicked")
     except Exception as e:
         try:
             page.locator("button:has-text('SUBMIT')").first.click()
-            page.wait_for_timeout(400)
+            page.wait_for_timeout(200)
             log("SUBMIT clicked (fallback)")
         except Exception:
             raise RuntimeError(f"Could not click SUBMIT button: {e}")
@@ -123,12 +120,12 @@ def click_confirm(page, log_callback=None):
         confirm_btn = page.locator("button.green-btn:has-text('CONFIRM')").first
         confirm_btn.wait_for(state="visible", timeout=8000)
         confirm_btn.click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(300)
         log("CONFIRM clicked")
     except Exception:
         try:
             page.locator("button:has-text('CONFIRM')").first.click()
-            page.wait_for_timeout(500)
+            page.wait_for_timeout(300)
             log("CONFIRM clicked (fallback)")
         except Exception as e:
             raise RuntimeError(f"Could not click CONFIRM button: {e}")
@@ -150,7 +147,7 @@ def extract_application_id(page, log_callback=None) -> str:
 
     log("Extracting Loan Application Number...")
 
-    page.wait_for_timeout(300)
+    page.wait_for_timeout(200)
 
     # Strategy 1: Look for <h4> in a visible modal with the success pattern
     try:
@@ -237,7 +234,6 @@ def click_ok_success_modal(page, log_callback=None):
             btn = page.locator(f"button:has-text('{txt}')").first
             if btn.is_visible(timeout=2000):
                 btn.click()
-                page.wait_for_timeout(200)
                 log(f"Success modal dismissed ({txt})")
                 return
         except Exception:
