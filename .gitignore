@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+*.pyo
+secret.key
+profiles/
+logs/
+*.xlsx
+*.xls
+
+# PyInstaller build artifacts
+build/
+dist/
+*.spec
