@@ -97,13 +97,13 @@ def click_proceed(page, log_callback=None):
         proceed_btn = page.locator("button.btn.genGreenBtn:has-text('PROCEED')").first
         proceed_btn.wait_for(state="visible", timeout=8000)
         proceed_btn.click()
-        page.wait_for_timeout(300)
+        page.wait_for_timeout(150)
         log("PROCEED clicked — loading discrepancy list")
     except Exception as e:
         # Fallback: broader selector
         try:
             page.locator("button:has-text('PROCEED')").first.click()
-            page.wait_for_timeout(300)
+            page.wait_for_timeout(150)
             log("PROCEED clicked (fallback)")
         except Exception:
             raise RuntimeError(f"Could not click PROCEED button: {e}")

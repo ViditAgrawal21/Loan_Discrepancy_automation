@@ -56,6 +56,8 @@ def click_update(page, log_callback=None):
                 if btn_text == "UPDATE":
                     btn.wait_for(state="visible", timeout=8000)
                     btn.click()
+                    # Wait for the form to become editable
+                    page.locator("input[name='beneficiaryName']").first.wait_for(state="visible", timeout=8000)
                     log("UPDATE clicked — form is now editable")
                     return
             except Exception:
@@ -67,6 +69,8 @@ def click_update(page, log_callback=None):
         ).filter(has_text="UPDATE").first
         update_btn.wait_for(state="visible", timeout=8000)
         update_btn.click()
+        # Wait for the form to become editable
+        page.locator("input[name='beneficiaryName']").first.wait_for(state="visible", timeout=8000)
         log("UPDATE clicked (fallback)")
 
     except Exception as e:
@@ -97,7 +101,7 @@ def fill_discrepancy_fields(page, row_data: dict, log_callback=None):
             try:
                 # Check if the input exists and is visible on the page
                 input_el = page.locator(f"input[name='{input_name}']").first
-                if input_el.is_visible(timeout=1500):
+                if input_el.is_visible(timeout=5000):
                     _fill_react_input(page, input_name, value)
                     log(f"  Updated {input_name}: {value}")
                     fields_updated += 1
@@ -112,6 +116,210 @@ def fill_discrepancy_fields(page, row_data: dict, log_callback=None):
         log(f"  {fields_updated} field(s) updated")
 
 
+def click_verify_aadhaar(page, log_callback=None):
+    """
+    Click the VERIFY button next to the Aadhaar Number field.
+    This triggers Aadhaar name verification against the filled name.
+    Button: <button class="btn btn-btn purple-btn applicant_input_inner_btn">VERIFY</button>
+    """
+    def log(msg):
+        if log_callback:
+            log_callback(msg)
+
+    log("Clicking VERIFY (Aadhaar)...")
+
+    # ── Pre-check: inline errors already visible BEFORE clicking VERIFY ──
+    # If they exist, the VERIFY button will be disabled and clicking wastes 30s.
+    _check_inline_name_errors(page, log)
+
+    verify_btn = page.locator(
+        "button.purple-btn.applicant_input_inner_btn:has-text('VERIFY')"
+    ).first
+
+    # ── Check if VERIFY button is disabled ──
+    try:
+        if verify_btn.is_visible(timeout=3000) and verify_btn.is_disabled():
+            log("VERIFY button is disabled — checking for errors...")
+            # One more inline check in case timing caused the first to miss
+            _check_inline_name_errors(page, log)
+            # Still disabled with no detected inline error — raise generic
+            raise AadhaarVerifyError("VERIFY button disabled — name validation failed")
+    except AadhaarVerifyError:
+        raise
+    except Exception:
+        pass
+
+    try:
+        verify_btn.wait_for(state="visible", timeout=8000)
+        verify_btn.click()
+        # Wait for verification API response — modal can take time to appear
+        page.wait_for_timeout(2000)
+        log("VERIFY clicked — Aadhaar verification triggered")
+    except AadhaarVerifyError:
+        raise
+    except Exception as e:
+        # Fallback: broader selector
+        try:
+            page.locator("button:has-text('VERIFY')").first.click()
+            page.wait_for_timeout(2000)
+            log("VERIFY clicked (fallback)")
+        except Exception:
+            raise RuntimeError(f"Could not click VERIFY button: {e}")
+
+    # ── Post-check: "Name is not matching" modal / inline errors ──
+    _check_verify_name_error(page, log)
+
+
+def _check_verify_name_error(page, log):
+    """
+    After clicking VERIFY, check for TWO types of errors:
+    1. Modal error: "Name is not matching upto the expected limit" (h4 in modal)
+    2. Inline validation errors: <span class="error"> with text like
+       "Please enter name as per Aadhaar card." or "Please enter name as per Passbook."
+    If found, dismiss any modal and raise AadhaarVerifyError.
+    """
+    # ── 1. Check for "Name is not matching" modal ──
+    # The modal has class "fade myapp-sucess modal show" and contains div.modal-content
+    modal_selectors = [
+        "div.modal.show div.modal-content",
+        "div.myapp-sucess.modal.show div.modal-content",
+        "div.modal-content",
+    ]
+    for modal_sel in modal_selectors:
+        try:
+            modal = page.locator(modal_sel).first
+            if modal.is_visible(timeout=2000):
+                modal_text = modal.inner_text().lower()
+                error_phrases = [
+                    "name is not matching",
+                    "not matching upto the expected limit",
+                    "name mismatch",
+                ]
+                for phrase in error_phrases:
+                    if phrase in modal_text:
+                        try:
+                            error_text = modal.locator("h4").first.inner_text().strip()
+                        except Exception:
+                            error_text = "Name is not matching upto the expected limit"
+
+                        # Click OK to dismiss the modal
+                        _dismiss_modal_ok(page, modal, log)
+
+                        raise AadhaarVerifyError(error_text)
+                # Modal visible but not a name error — break to avoid re-checking
+                break
+        except AadhaarVerifyError:
+            raise
+        except Exception:
+            continue
+
+    # ── 2. Check for inline validation errors on name fields ──
+    _check_inline_name_errors(page, log)
+
+
+def _dismiss_modal_ok(page, modal, log):
+    """
+    Dismiss a modal by clicking its OK / green-btn button.
+    Tries multiple selectors to be robust.
+    """
+    try:
+        ok_btn = modal.locator("button.green-btn").first
+        if ok_btn.is_visible(timeout=2000):
+            ok_btn.click()
+            log("Dismissed error modal (OK)")
+            return
+    except Exception:
+        pass
+    try:
+        ok_btn = modal.locator("button:has-text('OK')").first
+        if ok_btn.is_visible(timeout=1000):
+            ok_btn.click()
+            log("Dismissed error modal (OK fallback)")
+            return
+    except Exception:
+        pass
+    try:
+        page.locator("div.modal.show button:has-text('OK')").first.click()
+        log("Dismissed error modal (page-level OK)")
+    except Exception:
+        pass
+
+
+def _dismiss_blocking_modal(page, log):
+    """
+    Before clicking UPDATE & CONTINUE, check if any blocking modal is visible
+    (e.g. the name-mismatch modal that wasn't caught earlier).
+    If found with a name-matching error, dismiss and raise AadhaarVerifyError.
+    If found with unknown content, dismiss and continue.
+    """
+    try:
+        modal = page.locator("div.modal.show div.modal-content").first
+        if modal.is_visible(timeout=500):
+            modal_text = modal.inner_text().lower()
+            error_phrases = [
+                "name is not matching",
+                "not matching upto the expected limit",
+                "name mismatch",
+            ]
+            for phrase in error_phrases:
+                if phrase in modal_text:
+                    try:
+                        error_text = modal.locator("h4").first.inner_text().strip()
+                    except Exception:
+                        error_text = "Name is not matching upto the expected limit"
+                    _dismiss_modal_ok(page, modal, log)
+                    raise AadhaarVerifyError(error_text)
+
+            # Unknown modal — dismiss it so UPDATE & CONTINUE isn't blocked
+            log("Dismissing unexpected blocking modal...")
+            _dismiss_modal_ok(page, modal, log)
+    except AadhaarVerifyError:
+        raise
+    except Exception:
+        pass
+
+
+def _check_inline_name_errors(page, log):
+    """
+    Detect inline <span class="error"> messages near the name fields:
+      - "Please enter name as per Aadhaar card."
+      - "Please enter name as per Passbook."
+    These appear after VERIFY when the names are invalid/rejected.
+    """
+    inline_error_phrases = [
+        "please enter name as per aadhaar",
+        "please enter name as per passbook",
+        "enter name as per aadhaar",
+        "enter name as per passbook",
+    ]
+
+    try:
+        error_spans = page.locator("span.error").all()
+        collected_errors = []
+        for span in error_spans:
+            try:
+                if span.is_visible(timeout=300):
+                    text = span.inner_text().strip()
+                    if not text:
+                        continue
+                    text_lower = text.lower()
+                    for phrase in inline_error_phrases:
+                        if phrase in text_lower:
+                            collected_errors.append(text)
+                            break
+            except Exception:
+                continue
+
+        if collected_errors:
+            error_msg = " | ".join(collected_errors)
+            log(f"Inline name validation error(s): {error_msg}")
+            raise AadhaarVerifyError(error_msg)
+    except AadhaarVerifyError:
+        raise
+    except Exception:
+        pass
+
+
 def click_update_and_continue(page, log_callback=None):
     """
     Click the UPDATE & CONTINUE button (button.btn.genDarkCyanBtn).
@@ -122,6 +330,9 @@ def click_update_and_continue(page, log_callback=None):
 
     log("Clicking UPDATE & CONTINUE...")
 
+    # ── Dismiss any blocking modal left over from VERIFY ──
+    _dismiss_blocking_modal(page, log)
+
     try:
         btn = page.locator(
             "button.btn.genDarkCyanBtn:has-text('UPDATE & CONTINUE')"
@@ -129,13 +340,13 @@ def click_update_and_continue(page, log_callback=None):
         btn.wait_for(state="visible", timeout=8000)
         btn.scroll_into_view_if_needed()
         btn.click()
-        page.wait_for_timeout(200)
+        page.wait_for_timeout(100)
         log("UPDATE & CONTINUE clicked")
     except Exception as e:
         # Fallback: broader selector
         try:
             page.locator("button:has-text('UPDATE & CONTINUE')").first.click()
-            page.wait_for_timeout(200)
+            page.wait_for_timeout(100)
             log("UPDATE & CONTINUE clicked (fallback)")
         except Exception:
             raise RuntimeError(f"Could not click UPDATE & CONTINUE: {e}")
@@ -237,5 +448,6 @@ def update_discrepancy(page, row_data: dict, log_callback=None):
     """
     click_update(page, log_callback=log_callback)
     fill_discrepancy_fields(page, row_data, log_callback=log_callback)
+    click_verify_aadhaar(page, log_callback=log_callback)
     click_update_and_continue(page, log_callback=log_callback)
     click_ok_modal(page, log_callback=log_callback)

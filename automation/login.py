@@ -51,12 +51,12 @@ def perform_login(page, context, profile: dict, profile_name: str,
             window.history.pushState({}, '', '/login');
             window.dispatchEvent(new PopStateEvent('popstate'));
         }""")
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         # If SPA routing didn't work, try a direct location change
         if "/login" not in page.url:
             page.evaluate("window.location.hash = '#/login'")
-            page.wait_for_timeout(300)
+            page.wait_for_timeout(200)
 
     log("On login page")
 

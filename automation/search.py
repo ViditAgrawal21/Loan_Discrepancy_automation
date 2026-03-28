@@ -81,7 +81,7 @@ def search_account(page, account_number: str, log_callback=None):
         # Click the search icon button to trigger the search
         search_btn = page.locator(".searchBar button.btn-secondary").first
         search_btn.click()
-        page.wait_for_timeout(300)  # Wait for table results to load
+        page.wait_for_timeout(150)  # Wait for table results to load
 
         log(f"Search entered & clicked: {account_number}")
     except Exception as e:
